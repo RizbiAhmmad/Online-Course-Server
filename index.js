@@ -29,6 +29,7 @@ async function run() {
     const database = client.db("Online-Course");
     const usersCollection = database.collection("users");
     const sliderCollection = database.collection("sliders");
+    const categoriesCollection = database.collection("categories");
 
     // POST endpoint to save user data (with role)
     app.post("/users", async (req, res) => {
@@ -124,6 +125,50 @@ async function run() {
       const result = await sliderCollection.deleteOne({
         _id: new ObjectId(id),
       });
+      res.send(result);
+    });
+
+    // Add a new category
+    app.post("/categories", async (req, res) => {
+      const category = req.body;
+      const result = await categoriesCollection.insertOne(category);
+      res.send(result);
+    });
+
+    // Get all categories
+    app.get("/categories", async (req, res) => {
+      const result = await categoriesCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Get a single category by ID
+    app.get("/categories/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const category = await categoriesCollection.findOne(query);
+      res.send(category);
+    });
+
+    // Delete a category by ID
+    app.delete("/categories/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await categoriesCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Update a category by ID
+    app.put("/categories/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedCategory = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          name: updatedCategory.name,
+          status: updatedCategory.status,
+        },
+      };
+      const result = await categoriesCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
