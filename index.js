@@ -30,6 +30,7 @@ async function run() {
     const usersCollection = database.collection("users");
     const sliderCollection = database.collection("sliders");
     const categoriesCollection = database.collection("categories");
+    const instructorsCollection = database.collection("instructors");
 
     // POST endpoint to save user data (with role)
     app.post("/users", async (req, res) => {
@@ -169,6 +170,59 @@ async function run() {
         },
       };
       const result = await categoriesCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    //  Add a new instructor
+    app.post("/instructors", async (req, res) => {
+      try {
+        const instructor = req.body;
+        instructor.createdAt = new Date();
+        const result = await instructorsCollection.insertOne(instructor);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to add instructor" });
+      }
+    });
+
+    //  Get all instructors
+    app.get("/instructors", async (req, res) => {
+      try {
+        const instructors = await instructorsCollection.find().toArray();
+        res.send(instructors);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to fetch instructors" });
+      }
+    });
+
+    //  Get single instructor by ID
+    app.get("/instructors/:id", async (req, res) => {
+      const id = req.params.id;
+      const instructor = await instructorsCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      res.send(instructor);
+    });
+
+    //  Update instructor
+    app.put("/instructors/:id", async (req, res) => {
+      const id = req.params.id;
+      const updated = req.body;
+      const result = await instructorsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updated }
+      );
+      res.send(result);
+    });
+
+    //  Delete instructor
+    app.delete("/instructors/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await instructorsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       res.send(result);
     });
 
