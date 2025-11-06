@@ -31,6 +31,7 @@ async function run() {
     const sliderCollection = database.collection("sliders");
     const categoriesCollection = database.collection("categories");
     const instructorsCollection = database.collection("instructors");
+    const coursesCollection = database.collection("courses");
 
     // POST endpoint to save user data (with role)
     app.post("/users", async (req, res) => {
@@ -224,6 +225,78 @@ async function run() {
         _id: new ObjectId(id),
       });
       res.send(result);
+    });
+
+    // Add a new course
+    app.post("/courses", async (req, res) => {
+      try {
+        const course = req.body;
+        course.createdAt = new Date();
+
+        const result = await coursesCollection.insertOne(course);
+        res.send(result);
+      } catch (error) {
+        console.error("❌ Error adding course:", error);
+        res.status(500).send({ error: "Failed to add course" });
+      }
+    });
+
+    // Get all courses (optionally only active)
+    app.get("/courses", async (req, res) => {
+      try {
+        const { status } = req.query;
+        const query = status ? { status } : {};
+        const courses = await coursesCollection.find(query).toArray();
+        res.send(courses);
+      } catch (error) {
+        console.error("❌ Error fetching courses:", error);
+        res.status(500).send({ error: "Failed to fetch courses" });
+      }
+    });
+
+    // Get single course by ID
+    app.get("/courses/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const course = await coursesCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        if (!course) return res.status(404).send({ error: "Course not found" });
+        res.send(course);
+      } catch (error) {
+        console.error("❌ Error fetching single course:", error);
+        res.status(500).send({ error: "Failed to fetch course" });
+      }
+    });
+
+    // Update course
+    app.put("/courses/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updated = req.body;
+        const result = await coursesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updated }
+        );
+        res.send(result);
+      } catch (error) {
+        console.error("❌ Error updating course:", error);
+        res.status(500).send({ error: "Failed to update course" });
+      }
+    });
+
+    // Delete course
+    app.delete("/courses/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await coursesCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (error) {
+        console.error("❌ Error deleting course:", error);
+        res.status(500).send({ error: "Failed to delete course" });
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
