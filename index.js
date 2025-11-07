@@ -32,6 +32,7 @@ async function run() {
     const categoriesCollection = database.collection("categories");
     const instructorsCollection = database.collection("instructors");
     const coursesCollection = database.collection("courses");
+    const reviewsCollection = database.collection("reviews");
 
     // POST endpoint to save user data (with role)
     app.post("/users", async (req, res) => {
@@ -297,6 +298,27 @@ async function run() {
         console.error("❌ Error deleting course:", error);
         res.status(500).send({ error: "Failed to delete course" });
       }
+    });
+  
+    // POST Review
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+    // GET Reviews
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // DELETE: Delete a review by ID
+    app.delete("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await reviewsCollection.deleteOne(query);
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
