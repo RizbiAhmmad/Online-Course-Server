@@ -33,6 +33,7 @@ async function run() {
     const instructorsCollection = database.collection("instructors");
     const coursesCollection = database.collection("courses");
     const reviewsCollection = database.collection("reviews");
+    const footerCollection = database.collection("footerInfo");
 
     // POST endpoint to save user data (with role)
     app.post("/users", async (req, res) => {
@@ -319,6 +320,59 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await reviewsCollection.deleteOne(query);
       res.send(result);
+    });
+
+    // Add Footer Info
+    app.post("/footer", async (req, res) => {
+      try {
+        const footer = { ...req.body, createdAt: new Date() };
+        const result = await footerCollection.insertOne(footer);
+        res.send({ insertedId: result.insertedId });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to add footer" });
+      }
+    });
+
+    // Get All Footers
+    app.get("/footer", async (req, res) => {
+      try {
+        const allFooters = await footerCollection.find().toArray();
+        res.send(allFooters);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to fetch footers" });
+      }
+    });
+
+    // Update Footer
+    app.put("/footer/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await footerCollection.findOneAndUpdate(
+          { _id: new ObjectId(id) },
+          { $set: req.body },
+          { returnDocument: "after" }
+        );
+        res.send(result.value);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to update footer" });
+      }
+    });
+
+    // Delete Footer
+    app.delete("/footer/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await footerCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: "Failed to delete footer" });
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
