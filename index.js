@@ -3,8 +3,12 @@ const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-
 require("dotenv").config();
+const SSLCommerzPayment = require("sslcommerz-lts");
+
+const store_id = process.env.SSLC_STORE_ID;
+const store_passwd = process.env.SSLC_STORE_PASS;
+const is_live = false;
 
 app.use(cors());
 app.use(express.json());
@@ -301,7 +305,7 @@ async function run() {
         res.status(500).send({ error: "Failed to delete course" });
       }
     });
-  
+
     // POST Review
     app.post("/reviews", async (req, res) => {
       const review = req.body;
@@ -442,6 +446,63 @@ async function run() {
         console.error(err);
         res.status(500).send({ error: "Failed to delete policy" });
       }
+    });
+
+    app.post("/initiate-payment", async (req, res) => {
+      const { courseId, courseTitle, amount, name, email, phone, address } =
+        req.body;
+
+      const tran_id = `TXN_${new Date().getTime()}`; // unique transaction ID
+
+      const data = {
+        total_amount: amount,
+        currency: "BDT",
+        tran_id,
+        success_url: `http://localhost:5000/payment/success/${tran_id}`, //Backend domain
+        fail_url: `http://localhost:5000/payment/fail/${tran_id}`, //Backend domain
+        cancel_url: `http://localhost:5000/payment/cancel/${tran_id}`, //Backend domain
+        ipn_url: `http://localhost:5000/payment/ipn`,
+        shipping_method: "NO",
+        product_name: courseTitle,
+        product_category: "Course",
+        product_profile: "general",
+        cus_name: name,
+        cus_email: email,
+        cus_add1: address,
+        cus_city: "Bangladesh",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: phone,
+      };
+
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+      sslcz.init(data).then((apiResponse) => {
+        // Redirect the user to SSLCommerz Gateway
+        const GatewayPageURL = apiResponse.GatewayPageURL;
+        res.send({ url: GatewayPageURL });
+      });
+    });
+
+    app.post("/payment/success/:tranId", async (req, res) => {
+      const { tranId } = req.params;
+
+      // Here you can mark the payment as "Paid" in your database
+      console.log("Payment Success for transaction:", tranId);
+
+      // Redirect the user to frontend success page
+      res.redirect(`http://localhost:5173/payment/success?tranId=${tranId}`);
+    });
+
+    app.post("/payment/fail/:tranId", async (req, res) => {
+      const { tranId } = req.params;
+      console.log("Payment Failed:", tranId);
+      res.redirect(`http://localhost:5173/payment/fail?tranId=${tranId}`);
+    });
+
+    app.post("/payment/cancel/:tranId", async (req, res) => {
+      const { tranId } = req.params;
+      console.log("Payment Canceled:", tranId);
+      res.redirect(`http://localhost:5173/payment/cancel?tranId=${tranId}`);
     });
 
     await client.db("admin").command({ ping: 1 });
