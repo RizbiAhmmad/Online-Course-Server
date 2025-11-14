@@ -39,6 +39,7 @@ async function run() {
     const reviewsCollection = database.collection("reviews");
     const footerCollection = database.collection("footerInfo");
     const policiesCollection = database.collection("policies");
+    const enrollmentsCollection = database.collection("enrollments");
 
     // POST endpoint to save user data (with role)
     app.post("/users", async (req, res) => {
@@ -449,18 +450,17 @@ async function run() {
     });
 
     app.post("/initiate-payment", async (req, res) => {
-      const { courseId, courseTitle, amount, name, email, phone, address } =
+      const { courseId, courseTitle,courseImage, amount, name, email, phone, address } =
         req.body;
 
-      const tran_id = `TXN_${new Date().getTime()}`; // unique transaction ID
-
+      const tran_id = `TXN_${new Date().getTime()}`;
       const data = {
         total_amount: amount,
         currency: "BDT",
         tran_id,
-        success_url: `http://localhost:5000/payment/success/${tran_id}`, //Backend domain
-        fail_url: `http://localhost:5000/payment/fail/${tran_id}`, //Backend domain
-        cancel_url: `http://localhost:5000/payment/cancel/${tran_id}`, //Backend domain
+        success_url: `http://localhost:5000/payment/success/${tran_id}`,
+        fail_url: `http://localhost:5000/payment/fail/${tran_id}`,
+        cancel_url: `http://localhost:5000/payment/cancel/${tran_id}`,
         ipn_url: `http://localhost:5000/payment/ipn`,
         shipping_method: "NO",
         product_name: courseTitle,
@@ -475,22 +475,47 @@ async function run() {
         cus_phone: phone,
       };
 
+      //  Save temporary record
+      await enrollmentsCollection.insertOne({
+        tranId: tran_id,
+        status: "pending",
+        courseId,
+        courseTitle,
+        courseImage,
+        amount,
+        name,
+        email,
+        phone,
+        address,
+        createdAt: new Date(),
+      });
+
       const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
       sslcz.init(data).then((apiResponse) => {
-        // Redirect the user to SSLCommerz Gateway
-        const GatewayPageURL = apiResponse.GatewayPageURL;
-        res.send({ url: GatewayPageURL });
+        res.send({ url: apiResponse.GatewayPageURL });
       });
     });
 
     app.post("/payment/success/:tranId", async (req, res) => {
       const { tranId } = req.params;
 
-      // Here you can mark the payment as "Paid" in your database
-      console.log("Payment Success for transaction:", tranId);
+      try {
+        const result = await enrollmentsCollection.updateOne(
+          { tranId },
+          { $set: { status: "success", paidAt: new Date() } }
+        );
 
-      // Redirect the user to frontend success page
-      res.redirect(`http://localhost:5173/payment/success?tranId=${tranId}`);
+        if (result.modifiedCount > 0) {
+          res.redirect(
+            `http://localhost:5173/payment/success?tranId=${tranId}`
+          );
+        } else {
+          res.status(400).send({ message: "No pending enrollment found" });
+        }
+      } catch (error) {
+        console.error("Error saving enrollment:", error);
+        res.status(500).send({ message: "Failed to save enrollment" });
+      }
     });
 
     app.post("/payment/fail/:tranId", async (req, res) => {
@@ -503,6 +528,19 @@ async function run() {
       const { tranId } = req.params;
       console.log("Payment Canceled:", tranId);
       res.redirect(`http://localhost:5173/payment/cancel?tranId=${tranId}`);
+    });
+
+    // Get all enrollments (Admin use)
+    app.get("/enrollments", async (req, res) => {
+      const result = await enrollmentsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Get enrollments by user email (User use)
+    app.get("/enrollments/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await enrollmentsCollection.find({ email }).toArray();
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
